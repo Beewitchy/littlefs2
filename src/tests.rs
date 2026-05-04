@@ -2,8 +2,7 @@ use core::convert::TryInto;
 use littlefs2_core::PathBuf;
 
 use crate::{
-    driver::Storage,
-    fs::{Allocation, Attribute, File, Filesystem, MountFlags},
+    fs::{Allocation, Attribute, File, Filesystem},
     io::{Error, OpenSeekFrom, Read, Result, SeekFrom},
     path, BACKEND_VERSION, DISK_VERSION,
 };
@@ -35,6 +34,7 @@ ram_storage!(
     lookahead_size = 16,
 );
 
+#[cfg(feature = "unstable-littlefs-patched")]
 ram_storage!(
     name = LargerRamStorage,
     backend = LargerRam,
@@ -558,8 +558,11 @@ fn test_mount_or_else_clobber_alloc() {
 //     t.pass("tests/ui/*-pass.rs");
 // }
 
+#[cfg(feature = "unstable-littlefs-patched")]
 #[test]
 fn shrinking() {
+    use crate::{driver::Storage, fs::MountFlags};
+
     let backend = &mut Ram::default();
     let storage = &mut RamStorage::new(backend);
     let alloc = &mut Allocation::new(storage);
@@ -613,8 +616,12 @@ fn shrinking() {
     );
 }
 
+#[cfg(feature = "unstable-littlefs-patched")]
 #[test]
 fn shrinking_full() {
+    use crate::driver::Storage;
+    use littlefs2_core::PathBuf;
+
     let larger_backend = &mut LargerRam::default();
     let larger_storage = &mut LargerRamStorage::new(larger_backend);
     let larger_alloc = &mut Allocation::new(larger_storage);

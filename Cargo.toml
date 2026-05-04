@@ -9,11 +9,12 @@ repository = "https://github.com/trussed-dev/littlefs2"
 [package]
 name = "littlefs2"
 description = "Idiomatic Rust API for littlefs"
-version = "0.6.1"
+version = "0.7.1"
 authors = ["Nicolas Stalder <n@stalder.io>", "Brandon Edens <brandonedens@gmail.com>", "The Trussed developers"]
 readme = "README.md"
 categories = ["embedded", "filesystem", "no-std"]
 documentation = "https://docs.rs/littlefs2"
+rust-version = "1.87"
 
 edition.workspace = true
 license.workspace = true
@@ -22,16 +23,12 @@ repository.workspace = true
 [package.metadata.docs.rs]
 all-features = true
 
-[[example]]
-name = "list"
-required-features = ["alloc", "littlefs2-core/heapless07"]
-
 [dependencies]
 bitflags = "2.9.0"
 delog = "0.1.0"
-heapless = "0.7"
+heapless = "0.9"
 littlefs2-core = { version = "0.1", path = "core" }
-littlefs2-sys = { version = "0.3.1", features = ["multiversion"] }
+littlefs2-sys = { version = "0.3.2", features = ["multiversion"] }
 
 [dev-dependencies]
 ssmarshal = "1"
@@ -58,10 +55,14 @@ log-debug = []
 log-warn = []
 log-error = []
 
+# unstable features -- enabling one of the following features may break semantic versioning guarantees
+
+# Use a patched version of littlefs, see littlefs2-sys.
+# If this feature is enabled, you should pin littlefs2-sys and littlefs2 to compatible versions.
+unstable-littlefs-patched = ["littlefs2-sys/unstable-littlefs-patched"]
+
 # TODO: LFS_NAME_MAX (and maybe other sizes) are baked into the
 # compiled C library. For instance, the `lfs_info` struct has a
 # member `char name[LFS_NAME_MAX+1]`.
 # This means that if we change `traits::Storage::FILENAME_MAX_PLUS_ONE`,
 # we need to pass this on!
-[patch.crates-io]
-littlefs2-sys = { git = "https://github.com/trussed-dev/littlefs2-sys", rev = "v0.3.1-nitrokey.1" }

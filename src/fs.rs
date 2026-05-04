@@ -64,11 +64,13 @@ pub struct Allocation<Storage: driver::Storage> {
 #[derive(Default, Clone, Debug)]
 #[non_exhaustive]
 pub struct Config {
+    #[cfg(feature = "unstable-littlefs-patched")]
     pub mount_flags: MountFlags,
 }
 
+#[cfg(feature = "unstable-littlefs-patched")]
 bitflags::bitflags! {
-    #[derive(Default, Clone, Copy,Debug)]
+    #[derive(Default, Clone, Copy, Debug)]
     pub struct MountFlags: u32 {
         const DISABLE_BLOCK_COUNT_CHECK = ll::lfs_fs_flags_LFS_CFG_DISABLE_BLOCK_COUNT_CHECK as _;
     }
@@ -100,17 +102,9 @@ impl<Storage: driver::Storage> Allocation<Storage> {
         debug_assert!(cache_size > 0);
         debug_assert!(lookahead_size > 0);
 
-        // cache must be multiple of read
-        debug_assert!(read_size <= cache_size);
-        debug_assert!(cache_size % read_size == 0);
-
-        // cache must be multiple of write
-        debug_assert!(write_size <= cache_size);
-        debug_assert!(cache_size % write_size == 0);
-
-        // block must be multiple of cache
-        debug_assert!(cache_size <= block_size);
-        debug_assert!(block_size % cache_size == 0);
+        debug_assert!(cache_size.is_multiple_of(read_size));
+        debug_assert!(cache_size.is_multiple_of(write_size));
+        debug_assert!(block_size.is_multiple_of(cache_size));
 
         let cache = Cache::new();
 
@@ -162,6 +156,7 @@ impl<Storage: driver::Storage> Allocation<Storage> {
             metadata_max: 0,
             inline_max: 0,
             disk_version: DISK_VERSION.into(),
+            #[cfg(feature = "unstable-littlefs-patched")]
             flags: config.mount_flags.bits(),
         };
 
@@ -257,6 +252,7 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
         f(&fs)
     }
 
+    #[cfg(feature = "unstable-littlefs-patched")]
     pub fn shrink(&self, block_count: usize) -> Result<()> {
         let mut alloc = self.alloc.borrow_mut();
         let return_code = unsafe { ll::lfs_fs_shrink(&mut alloc.state, block_count as _) };
@@ -525,6 +521,7 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
         // println!("in lfs_config_read for {} bytes", size);
         let storage = unsafe { &mut *((*c).context as *mut Storage) };
         debug_assert!(!c.is_null());
+        // TODO(ellie.h) should this use storage.block_size() rather than reading the value, like in main branch?
         let block_size = unsafe { c.read().block_size };
         let off = (block * block_size + off) as usize;
         let buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buffer as *mut u8, size as usize) };
@@ -546,7 +543,7 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
         debug_assert!(!c.is_null());
         // let block_size = unsafe { c.read().block_size };
         let block_size = storage.block_size() as u32;
-        let off = (block * block_size + off) as usize;
+        let off = block as usize * block_size + off as usize;
         let buf: &[u8] = unsafe { slice::from_raw_parts(buffer as *const u8, size as usize) };
 
         error_code_from(storage.write(off, buf))
@@ -729,7 +726,7 @@ impl<'a, 'b, Storage: driver::Storage> File<'a, 'b, Storage> {
     }
 
     // This belongs in `io::Read` but really don't want that to have a generic parameter
-    pub fn read_to_end<const N: usize>(&self, buf: &mut heapless::Vec<u8, N>) -> Result<usize> {
+    pub fn read_to_end(&self, buf: &mut heapless::VecView<u8>) -> Result<usize> {
         // My understanding of
         // https://github.com/littlefs-project/littlefs/blob/4c9146ea539f72749d6cc3ea076372a81b12cb11/lfs.c#L2816
         // is that littlefs keeps reading until either the buffer is full, or the file is exhausted
@@ -1182,7 +1179,7 @@ impl<'a, Storage: driver::Storage> Filesystem<'a, Storage> {
     /// Creates a new, empty directory at the provided path.
     pub fn create_dir(&self, path: &Path) -> Result<()> {
         #[cfg(test)]
-        println!("creating {:?}", path);
+        println!("creating {path:?}");
         let return_code =
             unsafe { ll::lfs_mkdir(&mut self.alloc.borrow_mut().state, path.as_ptr()) };
         result_from((), return_code)
@@ -1200,7 +1197,7 @@ impl<'a, Storage: driver::Storage> Filesystem<'a, Storage> {
             if path_slice[i] == b'/' {
                 let dir = PathBuf::try_from(&path_slice[..i]).map_err(|_| Error::IO)?;
                 #[cfg(test)]
-                println!("generated PathBuf dir {:?} using i = {}", &dir, i);
+                println!("generated PathBuf dir {dir:?} using i = {i}");
                 if let Err(error) = self.create_dir(&dir) {
                     if error != Error::ENTRY_ALREADY_EXISTED {
                         return Err(error);
@@ -1271,7 +1268,7 @@ impl<'a, Storage: driver::Storage> Filesystem<'a, Storage> {
     /// and will entirely replace its contents if it does.
     pub fn write(&self, path: &Path, contents: &[u8]) -> Result<()> {
         #[cfg(test)]
-        println!("writing {:?}", path);
+        println!("writing {path:?}");
         File::create_and_then(self, path, |file| {
             use io::Write;
             file.write_all(contents)
@@ -1285,7 +1282,7 @@ impl<'a, Storage: driver::Storage> Filesystem<'a, Storage> {
     /// it will fail if the file is not already large enough with regard to the `pos` parameter
     pub fn write_chunk(&self, path: &Path, contents: &[u8], pos: OpenSeekFrom) -> Result<()> {
         #[cfg(test)]
-        println!("writing {:?}", path);
+        println!("writing {path:?}");
         OpenOptions::new()
             .read(true)
             .write(true)
