@@ -163,13 +163,13 @@ pub trait Storage {
 
     /// Read data from the storage device.
     /// Guaranteed to be called only with bufs of length a multiple of READ_SIZE.
-    fn read(&mut self, off: usize, buf: &mut [u8]) -> Result<usize, Error>;
+    fn read(&mut self, block: usize, off: usize, buf: &mut [u8]) -> Result<usize, Error>;
     /// Write data to the storage device.
     /// Guaranteed to be called only with bufs of length a multiple of WRITE_SIZE.
-    fn write(&mut self, off: usize, data: &[u8]) -> Result<usize, Error>;
+    fn write(&mut self, block: usize, off: usize, data: &[u8]) -> Result<usize, Error>;
     /// Erase data from the storage device.
     /// Guaranteed to be called only with bufs of length a multiple of BLOCK_SIZE.
-    fn erase(&mut self, off: usize, len: usize) -> Result<usize, Error>;
-    // /// Synchronize writes to the storage device.
-    // fn sync(&mut self) -> Result<usize>;
+    fn erase(&mut self, block: usize, len: usize) -> Result<usize, Error>;
+    /// Synchronize writes to the storage device.
+    fn sync(&mut self) -> Result<(), Error>;
 }

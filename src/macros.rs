@@ -63,8 +63,9 @@ macro_rules! ram_storage {
             }
             type LOOKAHEAD_BUFFER = [u8; $lookahead_size * 8];
 
-            fn read(&mut self, offset: usize, buf: &mut [u8]) -> $crate::io::Result<usize> {
+            fn read(&mut self, block: usize, offset: usize, buf: &mut [u8]) -> $crate::io::Result<usize> {
                 let read_size: usize = self.read_size();
+                let offset = block * read_size + offset;
                 debug_assert!(offset % read_size == 0);
                 debug_assert!(buf.len() % read_size == 0);
                 for (from, to) in self.backend.buf[offset..].iter().zip(buf.iter_mut()) {
@@ -73,8 +74,9 @@ macro_rules! ram_storage {
                 Ok(buf.len())
             }
 
-            fn write(&mut self, offset: usize, data: &[u8]) -> $crate::io::Result<usize> {
+            fn write(&mut self, block: usize, offset: usize, data: &[u8]) -> $crate::io::Result<usize> {
                 let write_size: usize = self.write_size();
+                let offset = block * write_size + offset;
                 debug_assert!(offset % write_size == 0);
                 debug_assert!(data.len() % write_size == 0);
                 for (from, to) in data.iter().zip(self.backend.buf[offset..].iter_mut()) {
@@ -83,14 +85,19 @@ macro_rules! ram_storage {
                 Ok(data.len())
             }
 
-            fn erase(&mut self, offset: usize, len: usize) -> $crate::io::Result<usize> {
+            fn erase(&mut self, block: usize, len: usize) -> $crate::io::Result<usize> {
                 let block_size: usize = self.block_size();
+                let offset = block_size * block;
                 debug_assert!(offset % block_size == 0);
                 debug_assert!(len % block_size == 0);
                 for byte in self.backend.buf[offset..offset + len].iter_mut() {
                     *byte = Self::ERASE_VALUE;
                 }
                 Ok(len)
+            }
+
+            fn sync(&mut self) -> $crate::io::Result<()> {
+                Ok(())
             }
         }
     };
@@ -196,8 +203,9 @@ macro_rules! const_ram_storage {
             }
             type LOOKAHEAD_BUFFER = [u8; $lookahead_size * 8];
 
-            fn read(&mut self, offset: usize, buf: &mut [u8]) -> $crate::io::Result<usize> {
+            fn read(&mut self, block: usize, offset: usize, buf: &mut [u8]) -> $crate::io::Result<usize> {
                 let read_size = self.read_size();
+                let offset = block * read_size + offset;
                 debug_assert!(offset % read_size == 0);
                 debug_assert!(buf.len() % read_size == 0);
                 for (from, to) in self.buf[offset..].iter().zip(buf.iter_mut()) {
@@ -206,8 +214,9 @@ macro_rules! const_ram_storage {
                 Ok(buf.len())
             }
 
-            fn write(&mut self, offset: usize, data: &[u8]) -> $crate::io::Result<usize> {
+            fn write(&mut self, block: usize, offset: usize, data: &[u8]) -> $crate::io::Result<usize> {
                 let write_size = self.write_size();
+                let offset = block * write_size + offset;
                 debug_assert!(offset % write_size == 0);
                 debug_assert!(data.len() % write_size == 0);
                 for (from, to) in data.iter().zip(self.buf[offset..].iter_mut()) {
@@ -216,14 +225,19 @@ macro_rules! const_ram_storage {
                 Ok(data.len())
             }
 
-            fn erase(&mut self, offset: usize, len: usize) -> $crate::io::Result<usize> {
+            fn erase(&mut self, block: usize, len: usize) -> $crate::io::Result<usize> {
                 let block_size: usize = self.block_size();
+                let offset = block * block_size;
                 debug_assert!(offset % block_size == 0);
                 debug_assert!(len % block_size == 0);
                 for byte in self.buf[offset..offset + len].iter_mut() {
                     *byte = Self::ERASE_VALUE;
                 }
                 Ok(len)
+            }
+
+            fn sync(&mut self) -> $crate::io::Result<()> {
+                Ok(())
             }
         }
     };

@@ -81,7 +81,10 @@ impl<Storage: driver::Storage> Allocation<Storage> {
         Self::with_config(storage, Config::default())
     }
 
-    pub fn with_config(storage: &Storage, config: Config) -> Allocation<Storage> {
+    pub fn with_config(
+        storage: &Storage,
+        #[cfg_attr(not(feature = "unstable-littlefs-patched"), allow(unused))] config: Config,
+    ) -> Allocation<Storage> {
         let read_size: u32 = storage.read_size() as _;
         let write_size: u32 = storage.write_size() as _;
         let block_size: u32 = storage.block_size() as _;
@@ -519,14 +522,11 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
         size: ll::lfs_size_t,
     ) -> c_int {
         // println!("in lfs_config_read for {} bytes", size);
-        let storage = unsafe { &mut *((*c).context as *mut Storage) };
         debug_assert!(!c.is_null());
-        // TODO(ellie.h) should this use storage.block_size() rather than reading the value, like in main branch?
-        let block_size = unsafe { c.read().block_size };
-        let off = (block * block_size + off) as usize;
+        let storage = unsafe { &mut *((*c).context as *mut Storage) };
         let buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buffer as *mut u8, size as usize) };
 
-        error_code_from(storage.read(off, buf))
+        error_code_from(storage.read(block as usize, off as usize, buf))
     }
 
     /// C callback interface used by LittleFS to program data with the lower level system below the
@@ -539,32 +539,31 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
         size: ll::lfs_size_t,
     ) -> c_int {
         // println!("in lfs_config_prog");
-        let storage = unsafe { &mut *((*c).context as *mut Storage) };
         debug_assert!(!c.is_null());
-        // let block_size = unsafe { c.read().block_size };
-        let block_size = storage.block_size() as u32;
-        let off = block as usize * block_size + off as usize;
+        let storage = unsafe { &mut *((*c).context as *mut Storage) };
         let buf: &[u8] = unsafe { slice::from_raw_parts(buffer as *const u8, size as usize) };
 
-        error_code_from(storage.write(off, buf))
+        error_code_from(storage.write(block as usize, off as usize, buf))
     }
 
     /// C callback interface used by LittleFS to erase data with the lower level system below the
     /// filesystem.
     extern "C" fn lfs_config_erase(c: *const ll::lfs_config, block: ll::lfs_block_t) -> c_int {
         // println!("in lfs_config_erase");
+        debug_assert!(!c.is_null());
         let storage = unsafe { &mut *((*c).context as *mut Storage) };
-        let off = block as usize * storage.block_size();
 
-        error_code_from(storage.erase(off, storage.block_size()))
+        error_code_from(storage.erase(block as usize, storage.block_size()))
     }
 
     /// C callback interface used by LittleFS to sync data with the lower level interface below the
     /// filesystem. Note that this function currently does nothing.
-    extern "C" fn lfs_config_sync(_c: *const ll::lfs_config) -> c_int {
+    extern "C" fn lfs_config_sync(c: *const ll::lfs_config) -> c_int {
         // println!("in lfs_config_sync");
-        // Do nothing; we presume that data is synchronized.
-        0
+        debug_assert!(!c.is_null());
+        let storage = unsafe { &mut *((*c).context as *mut Storage) };
+
+        error_code_from(storage.sync())
     }
 }
 

@@ -131,7 +131,8 @@ impl Storage for FileStorage {
         self.lookahead_size
     }
 
-    fn read(&mut self, off: usize, buf: &mut [u8]) -> Result<usize> {
+    fn read(&mut self, block: usize, off: usize, buf: &mut [u8]) -> Result<usize> {
+        let off = block * BLOCK_SIZE + off;
         assert!(off + buf.len() <= BLOCK_SIZE * BLOCK_COUNT);
         if off >= self.len {
             // blocks that are not in the file are assumed to be empty
@@ -145,11 +146,11 @@ impl Storage for FileStorage {
         }
     }
 
-    fn write(&mut self, _off: usize, _data: &[u8]) -> Result<usize> {
+    fn write(&mut self, _block: usize, _off: usize, _data: &[u8]) -> Result<usize> {
         unimplemented!("read-only filesystem");
     }
 
-    fn erase(&mut self, _off: usize, _len: usize) -> Result<usize> {
+    fn erase(&mut self, _block: usize, _len: usize) -> Result<usize> {
         unimplemented!("read-only filesystem");
     }
 }

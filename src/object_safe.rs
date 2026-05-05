@@ -167,9 +167,10 @@ pub trait DynStorage {
     fn block_cycles(&self) -> isize;
     fn cache_size(&self) -> usize;
     fn lookahead_size(&self) -> usize;
-    fn read(&mut self, off: usize, buf: &mut [u8]) -> Result<usize>;
-    fn write(&mut self, off: usize, data: &[u8]) -> Result<usize>;
-    fn erase(&mut self, off: usize, len: usize) -> Result<usize>;
+    fn read(&mut self, block: usize, off: usize, buf: &mut [u8]) -> Result<usize>;
+    fn write(&mut self, block: usize, off: usize, data: &[u8]) -> Result<usize>;
+    fn erase(&mut self, block: usize, len: usize) -> Result<usize>;
+    fn sync(&mut self) -> Result<()>;
     fn format(&mut self) -> Result<()>;
     fn is_mountable(&mut self) -> bool;
     fn mount_and_then_unit(&mut self, f: FilesystemCallback<'_>) -> Result<()>;
@@ -204,16 +205,20 @@ impl<S: Storage> DynStorage for S {
         <S as Storage>::lookahead_size(self)
     }
 
-    fn read(&mut self, off: usize, buf: &mut [u8]) -> Result<usize> {
-        Storage::read(self, off, buf)
+    fn read(&mut self, block: usize, off: usize, buf: &mut [u8]) -> Result<usize> {
+        Storage::read(self, block, off, buf)
     }
 
-    fn write(&mut self, off: usize, data: &[u8]) -> Result<usize> {
-        Storage::write(self, off, data)
+    fn write(&mut self, block: usize, off: usize, data: &[u8]) -> Result<usize> {
+        Storage::write(self, block, off, data)
     }
 
-    fn erase(&mut self, off: usize, len: usize) -> Result<usize> {
-        Storage::erase(self, off, len)
+    fn erase(&mut self, block: usize, len: usize) -> Result<usize> {
+        Storage::erase(self, block, len)
+    }
+
+    fn sync(&mut self) -> Result<()> {
+        Storage::sync(self)
     }
 
     fn format(&mut self) -> Result<()> {

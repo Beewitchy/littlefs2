@@ -1,5 +1,4 @@
 use core::convert::TryInto;
-use littlefs2_core::PathBuf;
 
 use crate::{
     fs::{Allocation, Attribute, File, Filesystem},
