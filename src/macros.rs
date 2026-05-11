@@ -85,15 +85,14 @@ macro_rules! ram_storage {
                 Ok(data.len())
             }
 
-            fn erase(&mut self, block: usize, len: usize) -> $crate::io::Result<usize> {
+            fn erase(&mut self, block: usize) -> $crate::io::Result<usize> {
                 let block_size: usize = self.block_size();
                 let offset = block_size * block;
                 debug_assert!(offset % block_size == 0);
-                debug_assert!(len % block_size == 0);
-                for byte in self.backend.buf[offset..offset + len].iter_mut() {
+                for byte in self.backend.buf[offset..offset + block_size].iter_mut() {
                     *byte = Self::ERASE_VALUE;
                 }
-                Ok(len)
+                Ok(1)
             }
 
             fn sync(&mut self) -> $crate::io::Result<()> {
@@ -225,15 +224,14 @@ macro_rules! const_ram_storage {
                 Ok(data.len())
             }
 
-            fn erase(&mut self, block: usize, len: usize) -> $crate::io::Result<usize> {
+            fn erase(&mut self, block: usize) -> $crate::io::Result<usize> {
                 let block_size: usize = self.block_size();
                 let offset = block * block_size;
                 debug_assert!(offset % block_size == 0);
-                debug_assert!(len % block_size == 0);
-                for byte in self.buf[offset..offset + len].iter_mut() {
+                for byte in self.buf[offset..offset + block_size].iter_mut() {
                     *byte = Self::ERASE_VALUE;
                 }
-                Ok(len)
+                Ok(1)
             }
 
             fn sync(&mut self) -> $crate::io::Result<()> {

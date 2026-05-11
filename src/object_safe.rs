@@ -169,7 +169,7 @@ pub trait DynStorage {
     fn lookahead_size(&self) -> usize;
     fn read(&mut self, block: usize, off: usize, buf: &mut [u8]) -> Result<usize>;
     fn write(&mut self, block: usize, off: usize, data: &[u8]) -> Result<usize>;
-    fn erase(&mut self, block: usize, len: usize) -> Result<usize>;
+    fn erase(&mut self, block: usize) -> Result<usize>;
     fn sync(&mut self) -> Result<()>;
     fn format(&mut self) -> Result<()>;
     fn is_mountable(&mut self) -> bool;
@@ -213,8 +213,8 @@ impl<S: Storage> DynStorage for S {
         Storage::write(self, block, off, data)
     }
 
-    fn erase(&mut self, block: usize, len: usize) -> Result<usize> {
-        Storage::erase(self, block, len)
+    fn erase(&mut self, block: usize) -> Result<usize> {
+        Storage::erase(self, block)
     }
 
     fn sync(&mut self) -> Result<()> {
