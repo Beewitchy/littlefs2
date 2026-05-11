@@ -553,7 +553,7 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
         debug_assert!(!c.is_null());
         let storage = unsafe { &mut *((*c).context as *mut Storage) };
 
-        error_code_from(storage.erase(block as usize, storage.block_size()))
+        error_code_from(storage.erase(block as usize))
     }
 
     /// C callback interface used by LittleFS to sync data with the lower level interface below the
