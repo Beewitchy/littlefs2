@@ -7,6 +7,7 @@ use crate::{
 };
 
 const RAM_STORAGE_BLOCK_COUNT: usize = 32;
+#[cfg(feature = "unstable-littlefs-patched")]
 const LARGER_RAM_STORAGE_BLOCK_COUNT: usize = 64;
 
 ram_storage!(
