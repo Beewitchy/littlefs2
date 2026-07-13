@@ -14,18 +14,24 @@ macro_rules! ram_storage {
     cache_size=$cache_size:expr,
     block_size=$block_size:expr,
     block_count=$block_count:expr,
-    lookahead_size=$lookahead_size:expr,
+    lookahead_size_ty=$lookahead_size:path,
 
 ) => {
         pub struct $Backend {
             buf: [u8; $block_size * $block_count],
         }
 
-        impl Default for $Backend {
-            fn default() -> Self {
-                $Backend {
+        impl $Backend {
+            pub const fn new() -> Self {
+                Self {
                     buf: [$erase_value; $block_size * $block_count],
                 }
+            }
+        }
+
+        impl Default for $Backend {
+            fn default() -> Self {
+                Self::new()
             }
         }
 
@@ -110,7 +116,7 @@ macro_rules! ram_storage {
             cache_size = 32,
             block_size = 128,
             block_count = $bytes / 128,
-            lookahead_size = 1,
+            lookahead_size_ty = $crate::consts::U1,
         );
     };
     (tiny) => {
@@ -123,7 +129,7 @@ macro_rules! ram_storage {
             cache_size = 32,
             block_size = 128,
             block_count = 8,
-            lookahead_size = 1,
+            lookahead_size_ty = $crate::consts::U1,
         );
     };
     (large) => {
