@@ -14,7 +14,7 @@ macro_rules! ram_storage {
     cache_size=$cache_size:expr,
     block_size=$block_size:expr,
     block_count=$block_count:expr,
-    lookahead_size_ty=$lookahead_size:path,
+    lookahead_size=$lookahead_size:expr,
 
 ) => {
         pub struct $Backend {
@@ -116,7 +116,7 @@ macro_rules! ram_storage {
             cache_size = 32,
             block_size = 128,
             block_count = $bytes / 128,
-            lookahead_size_ty = $crate::consts::U1,
+            lookahead_size = 1,
         );
     };
     (tiny) => {
@@ -129,7 +129,7 @@ macro_rules! ram_storage {
             cache_size = 32,
             block_size = 128,
             block_count = 8,
-            lookahead_size_ty = $crate::consts::U1,
+            lookahead_size = 1,
         );
     };
     (large) => {

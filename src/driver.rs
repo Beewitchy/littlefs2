@@ -59,6 +59,34 @@ impl<const N: usize> private::Sealed for [u8; N] {
 
 unsafe impl<const N: usize> Buffer for [u8; N] {}
 
+impl<A, const N: usize> private::Sealed for aligned::Aligned<A, [u8; N]> where A: aligned::Alignment {
+    fn as_ptr(&self) -> *const u8 {
+        <[u8]>::as_ptr(&self[..])
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        <[u8]>::as_mut_ptr(&mut self[..])
+    }
+
+    fn current_len(&self) -> usize {
+        N
+    }
+
+    fn set_len(&mut self, len: usize) -> Result<(), private::NotEnoughCapacity> {
+        if len > N {
+            Err(private::NotEnoughCapacity)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn empty() -> Self {
+        aligned::Aligned([0; N])
+    }
+}
+
+unsafe impl<A, const N: usize> Buffer for aligned::Aligned<A, [u8; N]> where A: aligned::Alignment {}
+
 #[cfg(feature = "alloc")]
 impl private::Sealed for alloc::vec::Vec<u8> {
     fn as_ptr(&self) -> *const u8 {
@@ -85,6 +113,33 @@ impl private::Sealed for alloc::vec::Vec<u8> {
 
 #[cfg(feature = "alloc")]
 unsafe impl Buffer for alloc::vec::Vec<u8> {}
+
+#[cfg(feature = "alloc")]
+impl<A> private::Sealed for aligned_vec::AVec<u8, A> where A: aligned_vec::Alignment {
+    fn as_ptr(&self) -> *const u8 {
+        aligned_vec::AVec::as_ptr(self)
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        aligned_vec::AVec::as_mut_ptr(self)
+    }
+
+    fn current_len(&self) -> usize {
+        self.len()
+    }
+
+    fn set_len(&mut self, len: usize) -> Result<(), private::NotEnoughCapacity> {
+        self.resize(len, 0);
+        Ok(())
+    }
+
+    fn empty() -> Self {
+        Self::new(0)
+    }
+}
+
+#[cfg(feature = "alloc")]
+unsafe impl<A> Buffer for aligned_vec::AVec<u8, A> where A: aligned_vec::Alignment {}
 
 /// Users of this library provide a "storage driver" by implementing this trait.
 ///

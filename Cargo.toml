@@ -27,6 +27,8 @@ all-features = true
 bitflags = "2.9.0"
 delog = "0.1.0"
 heapless = "0.9"
+aligned = { version = "0.4" }
+aligned-vec = { version = "0.6", optional = true, default-features = false }
 littlefs2-core = { version = "0.1", path = "core" }
 littlefs2-sys = { version = "0.4", features = ["multiversion"] }
 
@@ -39,7 +41,7 @@ hex = "0.4.3"
 
 [features]
 default = ["serde"]
-alloc = []
+alloc = ["dep:aligned-vec"]
 serde = ["littlefs2-core/serde"]
 # enable assertions in backend C code
 ll-assertions = ["littlefs2-sys/assertions"]
