@@ -572,7 +572,7 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
     }
 
     /// C callback interface used by LittleFS to sync data with the lower level interface below the
-    /// filesystem. Note that this function currently does nothing.
+    /// filesystem.
     extern "C" fn lfs_config_sync(c: *const ll::lfs_config) -> c_int {
         // println!("in lfs_config_sync");
         debug_assert!(!c.is_null());
