@@ -146,11 +146,15 @@ impl Storage for FileStorage {
         }
     }
 
-    fn write(&mut self, _block: usize, _off: usize, _data: &[u8]) -> Result<usize> {
+    fn write(&mut self, _block: usize, _off: usize, _data: &mut [u8]) -> Result<usize> {
         unimplemented!("read-only filesystem");
     }
 
-    fn erase(&mut self, _block: usize, _len: usize) -> Result<usize> {
+    fn erase(&mut self, _block: usize) -> Result<usize> {
         unimplemented!("read-only filesystem");
+    }
+
+    fn sync(&mut self) -> Result<(), Error> {
+        Ok(())
     }
 }

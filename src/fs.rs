@@ -526,7 +526,11 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
     ) -> c_int {
         // println!("in lfs_config_read for {} bytes", size);
         debug_assert!(!c.is_null());
+        // SAFETY: The context variable is user-data owned by rust code: Filesystem should hold
+        // an exclusive ref to the memory in rust, so that should be maintained to uphold safety
+        // here.
         let storage = unsafe { &mut *((*c).context as *mut Storage) };
+        // SAFETY: Binding this memory assumes the littlefs C code is correct.
         let buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buffer as *mut u8, size as usize) };
 
         error_code_from(storage.read(block as usize, off as usize, buf))
@@ -543,8 +547,16 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
     ) -> c_int {
         // println!("in lfs_config_prog");
         debug_assert!(!c.is_null());
+        // SAFETY: The context variable is user-data owned by rust code: Filesystem should hold
+        // an exclusive ref to the memory in rust, so that should be maintained to uphold safety
+        // here.
         let storage = unsafe { &mut *((*c).context as *mut Storage) };
-        let buf: &[u8] = unsafe { slice::from_raw_parts(buffer as *const u8, size as usize) };
+        // SAFETY: Binding this memory assumes the littlefs C code is correct.
+        // Also note that this binds buffer as &mut to give the exclusive access guarantee to
+        // the rust interface: I believe the littlefs C code upholds this, and I don't imagine
+        // that will change since it wouldn't make sense to mess with a buffer that is currently
+        // being programmed to storage.
+        let buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buffer as *mut u8, size as usize) };
 
         error_code_from(storage.write(block as usize, off as usize, buf))
     }
@@ -564,6 +576,9 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
     extern "C" fn lfs_config_sync(c: *const ll::lfs_config) -> c_int {
         // println!("in lfs_config_sync");
         debug_assert!(!c.is_null());
+        // SAFETY: The context variable is user-data owned by rust code: Filesystem should hold
+        // an exclusive ref to the memory in rust, so that should be maintained to uphold safety
+        // here.
         let storage = unsafe { &mut *((*c).context as *mut Storage) };
 
         error_code_from(storage.sync())

@@ -80,7 +80,7 @@ macro_rules! ram_storage {
                 Ok(buf.len())
             }
 
-            fn write(&mut self, block: usize, offset: usize, data: &[u8]) -> $crate::io::Result<usize> {
+            fn write(&mut self, block: usize, offset: usize, data: &mut [u8]) -> $crate::io::Result<usize> {
                 let write_size: usize = self.write_size();
                 let offset = block * write_size + offset;
                 debug_assert!(offset % write_size == 0);
@@ -219,7 +219,7 @@ macro_rules! const_ram_storage {
                 Ok(buf.len())
             }
 
-            fn write(&mut self, block: usize, offset: usize, data: &[u8]) -> $crate::io::Result<usize> {
+            fn write(&mut self, block: usize, offset: usize, data: &mut [u8]) -> $crate::io::Result<usize> {
                 let write_size = self.write_size();
                 let offset = block * write_size + offset;
                 debug_assert!(offset % write_size == 0);

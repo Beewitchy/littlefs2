@@ -168,7 +168,7 @@ pub trait DynStorage {
     fn cache_size(&self) -> usize;
     fn lookahead_size(&self) -> usize;
     fn read(&mut self, block: usize, off: usize, buf: &mut [u8]) -> Result<usize>;
-    fn write(&mut self, block: usize, off: usize, data: &[u8]) -> Result<usize>;
+    fn write(&mut self, block: usize, off: usize, data: &mut [u8]) -> Result<usize>;
     fn erase(&mut self, block: usize) -> Result<usize>;
     fn sync(&mut self) -> Result<()>;
     fn format(&mut self) -> Result<()>;
@@ -209,7 +209,7 @@ impl<S: Storage> DynStorage for S {
         Storage::read(self, block, off, buf)
     }
 
-    fn write(&mut self, block: usize, off: usize, data: &[u8]) -> Result<usize> {
+    fn write(&mut self, block: usize, off: usize, data: &mut [u8]) -> Result<usize> {
         Storage::write(self, block, off, data)
     }
 
