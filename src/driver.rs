@@ -5,7 +5,9 @@ use crate::io::Error;
 
 mod private {
     pub struct NotEnoughCapacity;
-    pub trait Sealed {
+    pub trait BufferSealed {
+        type Allocator;
+
         /// Returns a buffer of bytes initialized and valid. If [`set_len`]() was called previously successfully,
         /// its last call defines the minimum number of valid bytes
         fn as_ptr(&self) -> *const u8;
@@ -21,17 +23,19 @@ mod private {
         /// If succeeded, the buffer obtained through the pointer operation **must** be of at least `len` bytes
         fn set_len(&mut self, len: usize) -> Result<(), NotEnoughCapacity>;
 
-        // We could use a `Default` trait bound but it's not implemented  for all array sizes
-        fn empty() -> Self;
+        /// Create an empty buffer with the given allocator
+        fn empty_in(allocator: Self::Allocator) -> Self;
     }
 }
 
-pub(crate) use private::Sealed;
+pub(crate) use private::BufferSealed;
 
 /// Safety: implemented only by `[u8; N]` and `Vec<u8>` if the alloc feature is enabled
-pub unsafe trait Buffer: private::Sealed {}
+pub unsafe trait Buffer: private::BufferSealed {}
 
-impl<const N: usize> private::Sealed for [u8; N] {
+impl<const N: usize> private::BufferSealed for [u8; N] {
+    type Allocator = ();
+
     fn as_ptr(&self) -> *const u8 {
         <[u8]>::as_ptr(self)
     }
@@ -52,14 +56,16 @@ impl<const N: usize> private::Sealed for [u8; N] {
         }
     }
 
-    fn empty() -> Self {
+    fn empty_in(_: Self::Allocator) -> Self {
         [0; N]
     }
 }
 
 unsafe impl<const N: usize> Buffer for [u8; N] {}
 
-impl<A, const N: usize> private::Sealed for aligned::Aligned<A, [u8; N]> where A: aligned::Alignment {
+impl<A, const N: usize> private::BufferSealed for aligned::Aligned<A, [u8; N]> where A: aligned::Alignment {
+    type Allocator = ();
+
     fn as_ptr(&self) -> *const u8 {
         <[u8]>::as_ptr(&self[..])
     }
@@ -80,7 +86,7 @@ impl<A, const N: usize> private::Sealed for aligned::Aligned<A, [u8; N]> where A
         }
     }
 
-    fn empty() -> Self {
+    fn empty_in(_: Self::Allocator) -> Self {
         aligned::Aligned([0; N])
     }
 }
@@ -88,58 +94,95 @@ impl<A, const N: usize> private::Sealed for aligned::Aligned<A, [u8; N]> where A
 unsafe impl<A, const N: usize> Buffer for aligned::Aligned<A, [u8; N]> where A: aligned::Alignment {}
 
 #[cfg(feature = "alloc")]
-impl private::Sealed for alloc::vec::Vec<u8> {
-    fn as_ptr(&self) -> *const u8 {
-        <[u8]>::as_ptr(self)
-    }
+mod alloc {
+    #[cfg(feature = "nightly")]
+    mod nightly {
+        use super::super::{Buffer, private};
+        impl<A: alloc::alloc::Allocator> private::BufferSealed for alloc::vec::Vec<u8, A> {
+            type Allocator = A;
 
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        <[u8]>::as_mut_ptr(self)
-    }
+            fn as_ptr(&self) -> *const u8 {
+                <[u8]>::as_ptr(self)
+            }
 
-    fn current_len(&self) -> usize {
-        self.len()
-    }
+            fn as_mut_ptr(&mut self) -> *mut u8 {
+                <[u8]>::as_mut_ptr(self)
+            }
 
-    fn set_len(&mut self, len: usize) -> Result<(), private::NotEnoughCapacity> {
-        self.resize(len, 0);
-        Ok(())
-    }
+            fn current_len(&self) -> usize {
+                self.len()
+            }
 
-    fn empty() -> Self {
-        Self::new()
+            fn set_len(&mut self, len: usize) -> Result<(), private::NotEnoughCapacity> {
+                self.resize(len, 0);
+                Ok(())
+            }
+
+            fn empty_in(allocator: Self::Allocator) -> Self where Self: Sized {
+                Self::new_in(allocator)
+            }
+        }
+
+        unsafe impl<A: alloc::alloc::Allocator> Buffer for alloc::vec::Vec<u8, A> {}
+    }
+    #[cfg(not(feature = "nightly"))]
+    mod stable {
+        use super::super::{Buffer, private};
+        impl private::BufferSealed for alloc::vec::Vec<u8> {
+            fn as_ptr(&self) -> *const u8 {
+                <[u8]>::as_ptr(self)
+            }
+
+            fn as_mut_ptr(&mut self) -> *mut u8 {
+                <[u8]>::as_mut_ptr(self)
+            }
+
+            fn current_len(&self) -> usize {
+                self.len()
+            }
+
+            fn set_len(&mut self, len: usize) -> Result<(), private::NotEnoughCapacity> {
+                self.resize(len, 0);
+                Ok(())
+            }
+
+            fn empty_in(_: Self::Allocator) -> Self {
+                Self::new()
+            }
+        }
+
+        unsafe impl Buffer for alloc::vec::Vec<u8> {}
     }
 }
 
-#[cfg(feature = "alloc")]
-unsafe impl Buffer for alloc::vec::Vec<u8> {}
+#[cfg(feature = "aligned-vec")]
+mod aligned_vec {
+    use super::{Buffer, private};
+    impl<A> private::BufferSealed for aligned_vec::AVec<u8, A> where A: aligned_vec::Alignment {
+        fn as_ptr(&self) -> *const u8 {
+            aligned_vec::AVec::as_ptr(self)
+        }
 
-#[cfg(feature = "alloc")]
-impl<A> private::Sealed for aligned_vec::AVec<u8, A> where A: aligned_vec::Alignment {
-    fn as_ptr(&self) -> *const u8 {
-        aligned_vec::AVec::as_ptr(self)
+        fn as_mut_ptr(&mut self) -> *mut u8 {
+            aligned_vec::AVec::as_mut_ptr(self)
+        }
+
+        fn current_len(&self) -> usize {
+            self.len()
+        }
+
+        fn set_len(&mut self, len: usize) -> Result<(), private::NotEnoughCapacity> {
+            self.resize(len, 0);
+            Ok(())
+        }
+
+        fn empty_in(_: Self::Allocator) -> Self {
+            Self::new(0)
+        }
     }
 
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        aligned_vec::AVec::as_mut_ptr(self)
-    }
-
-    fn current_len(&self) -> usize {
-        self.len()
-    }
-
-    fn set_len(&mut self, len: usize) -> Result<(), private::NotEnoughCapacity> {
-        self.resize(len, 0);
-        Ok(())
-    }
-
-    fn empty() -> Self {
-        Self::new(0)
-    }
+    unsafe impl<A> Buffer for aligned_vec::AVec<u8, A> where A: aligned_vec::Alignment {}
 }
-
-#[cfg(feature = "alloc")]
-unsafe impl<A> Buffer for aligned_vec::AVec<u8, A> where A: aligned_vec::Alignment {}
 
 /// Users of this library provide a "storage driver" by implementing this trait.
 ///
@@ -175,14 +218,23 @@ pub trait Storage {
     }
 
     /// littlefs uses a read cache, a write cache, and one cache per per file.
-    type CACHE_BUFFER: Buffer;
+    type CacheBuffer: Buffer;
+
+    /// Should create the allocator for the cache buffer type,
+    /// if applicable
+    fn cache_allocator() -> <Self::CacheBuffer as BufferSealed>::Allocator;
 
     /// Must be a multiple of `read_size` and `write_size`.
     /// Must be a factor of `block_size`.
     fn cache_size(&self) -> usize;
 
     /// Lookahead buffer used by littlefs
-    type LOOKAHEAD_BUFFER: Buffer;
+    type LookaheadBuffer: Buffer;
+
+    /// Should create the allocator for the lookahead buffer type,
+    /// if applicable
+    fn lookahead_allocator() -> <Self::LookaheadBuffer as BufferSealed>::Allocator;
+
     /// Size of the lookahead buffer used by littlefs, measured in multiples of 8 bytes.
     fn lookahead_size(&self) -> usize;
 

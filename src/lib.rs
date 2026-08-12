@@ -1,7 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-// FIXME
-#![allow(clippy::missing_safety_doc)]
+#![cfg_attr(feature = "nightly", feature(allocator_api))]
 
 /*!
 

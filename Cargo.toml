@@ -41,7 +41,9 @@ hex = "0.4.3"
 
 [features]
 default = ["serde"]
-alloc = ["dep:aligned-vec"]
+alloc = []
+# enable nightly-only features
+nightly = []
 serde = ["littlefs2-core/serde"]
 # enable assertions in backend C code
 ll-assertions = ["littlefs2-sys/assertions"]

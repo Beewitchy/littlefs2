@@ -12,7 +12,7 @@ use littlefs2_sys as ll;
 pub use littlefs2_core::{Attribute, DirEntry, FileOpenFlags, FileType, Metadata};
 
 use crate::{
-    driver::{self, Sealed},
+    driver::{self, BufferSealed},
     io::{self, Error, OpenSeekFrom, Result},
     path::{Path, PathBuf},
     DISK_VERSION,
@@ -43,17 +43,21 @@ pub fn u32_result(return_value: i32) -> Result<u32> {
 }
 
 struct Cache<Storage: driver::Storage> {
-    read: UnsafeCell<Storage::CACHE_BUFFER>,
-    write: UnsafeCell<Storage::CACHE_BUFFER>,
-    lookahead: UnsafeCell<Storage::LOOKAHEAD_BUFFER>,
+    read: UnsafeCell<Storage::CacheBuffer>,
+    write: UnsafeCell<Storage::CacheBuffer>,
+    lookahead: UnsafeCell<Storage::LookaheadBuffer>,
 }
 
 impl<S: driver::Storage> Cache<S> {
-    pub fn new() -> Self {
+    pub fn new_in(
+        read_cache_allocator: <S::CacheBuffer as BufferSealed>::Allocator,
+        write_cache_allocator: <S::CacheBuffer as BufferSealed>::Allocator,
+        lookahead_allocator: <S::LookaheadBuffer as BufferSealed>::Allocator,
+    ) -> Self {
         Self {
-            read: UnsafeCell::new(S::CACHE_BUFFER::empty()),
-            write: UnsafeCell::new(S::CACHE_BUFFER::empty()),
-            lookahead: UnsafeCell::new(S::LOOKAHEAD_BUFFER::empty()),
+            read: UnsafeCell::new(S::CacheBuffer::empty_in(read_cache_allocator)),
+            write: UnsafeCell::new(S::CacheBuffer::empty_in(write_cache_allocator)),
+            lookahead: UnsafeCell::new(S::LookaheadBuffer::empty_in(lookahead_allocator)),
         }
     }
 }
@@ -84,9 +88,34 @@ impl<Storage: driver::Storage> Allocation<Storage> {
         Self::with_config(storage, Config::default())
     }
 
+    pub fn new_in(
+        storage: &Storage,
+        read_cache_allocator: <Storage::CacheBuffer as BufferSealed>::Allocator,
+        write_cache_allocator: <Storage::CacheBuffer as BufferSealed>::Allocator,
+        lookahead_allocator: <Storage::LookaheadBuffer as BufferSealed>::Allocator,
+    ) -> Self {
+        Self::with_config_in(
+            storage,
+            Config::default(),
+            read_cache_allocator,
+            write_cache_allocator,
+            lookahead_allocator,
+        )
+    }
+
     pub fn with_config(
         storage: &Storage,
         #[cfg_attr(not(feature = "unstable-littlefs-patched"), allow(unused))] config: Config,
+    ) -> Allocation<Storage> {
+        Self::with_config_in(storage, config, Storage::cache_allocator(), Storage::cache_allocator(), Storage::lookahead_allocator())
+    }
+
+    pub fn with_config_in(
+        storage: &Storage,
+        #[cfg_attr(not(feature = "unstable-littlefs-patched"), allow(unused))] config: Config,
+        read_cache_allocator: <Storage::CacheBuffer as BufferSealed>::Allocator,
+        write_cache_allocator: <Storage::CacheBuffer as BufferSealed>::Allocator,
+        lookahead_allocator: <Storage::LookaheadBuffer as BufferSealed>::Allocator,
     ) -> Allocation<Storage> {
         let read_size: u32 = storage.read_size() as _;
         let write_size: u32 = storage.write_size() as _;
@@ -112,7 +141,7 @@ impl<Storage: driver::Storage> Allocation<Storage> {
         debug_assert!(cache_size.is_multiple_of(write_size));
         debug_assert!(block_size.is_multiple_of(cache_size));
 
-        let cache = Cache::new();
+        let cache = Cache::new_in(read_cache_allocator, write_cache_allocator, lookahead_allocator);
 
         let filename_max_plus_one: u32 = crate::consts::FILENAME_MAX_PLUS_ONE;
         debug_assert!(filename_max_plus_one > 1);
@@ -587,7 +616,7 @@ impl<Storage: driver::Storage> Filesystem<'_, Storage> {
 
 /// The state of a `File`. Pre-allocate with `File::allocate`.
 pub struct FileAllocation<S: driver::Storage> {
-    cache: UnsafeCell<S::CACHE_BUFFER>,
+    cache: UnsafeCell<S::CacheBuffer>,
     state: ll::lfs_file_t,
     config: ll::lfs_file_config,
 }
@@ -595,7 +624,7 @@ pub struct FileAllocation<S: driver::Storage> {
 impl<S: driver::Storage> FileAllocation<S> {
     pub fn new() -> Self {
         Self {
-            cache: UnsafeCell::new(S::CACHE_BUFFER::empty()),
+            cache: UnsafeCell::new(S::CacheBuffer::empty_in(S::cache_allocator())),
             state: unsafe { mem::MaybeUninit::zeroed().assume_init() },
             config: unsafe { mem::MaybeUninit::zeroed().assume_init() },
         }
