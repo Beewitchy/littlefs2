@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "nightly", feature(allocator_api))]
+
 use std::{
     fs::File,
     io::{Read as _, Seek as _, SeekFrom},
@@ -107,8 +109,24 @@ struct FileStorage {
 }
 
 impl Storage for FileStorage {
-    type CACHE_BUFFER = Vec<u8>;
-    type LOOKAHEAD_BUFFER = Vec<u8>;
+    type CacheBuffer = Vec<u8>;
+    #[cfg(feature = "nightly")]
+    fn cache_allocator() -> std::alloc::Global {
+        std::alloc::Global
+    }
+    #[cfg(not(feature = "nightly"))]
+    fn cache_allocator() -> () {
+        ()
+    }
+    type LookaheadBuffer = Vec<u8>;
+    #[cfg(feature = "nightly")]
+    fn lookahead_allocator() -> std::alloc::Global {
+        std::alloc::Global
+    }
+    #[cfg(not(feature = "nightly"))]
+    fn lookahead_allocator() -> () {
+        ()
+    }
 
     fn read_size(&self) -> usize {
         self.read_size

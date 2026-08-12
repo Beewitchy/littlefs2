@@ -60,6 +60,9 @@ macro_rules! ram_storage {
                 $cache_size
             }
             type CacheBuffer = [u8; $cache_size];
+            fn cache_allocator() -> () {
+                ()
+            }
             fn block_count(&self) -> usize {
                 $block_count
             }
@@ -68,6 +71,9 @@ macro_rules! ram_storage {
                 $lookahead_size
             }
             type LookaheadBuffer = [u8; $lookahead_size * 8];
+            fn lookahead_allocator() -> () {
+                ()
+            }
 
             fn read(&mut self, block: usize, offset: usize, buf: &mut [u8]) -> $crate::io::Result<usize> {
                 let read_size: usize = self.read_size();
@@ -196,7 +202,7 @@ macro_rules! const_ram_storage {
                 $cache_size
             }
             type CacheBuffer = [u8; $cache_size];
-            fn cache_allocator() -> <Self::CacheBuffer as BufferSealed>::Allocator {
+            fn cache_allocator() -> () {
                 ()
             }
             fn block_size(&self) -> usize {
@@ -210,7 +216,7 @@ macro_rules! const_ram_storage {
                 $lookahead_size
             }
             type LookaheadBuffer = [u8; $lookahead_size * 8];
-            fn lookahead_allocator() -> <Self::LookaheadBuffer as BufferSealed>::Allocator {
+            fn lookahead_allocator() -> () {
                 ()
             }
 

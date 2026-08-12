@@ -129,6 +129,8 @@ mod alloc {
     mod stable {
         use super::super::{Buffer, private};
         impl private::BufferSealed for alloc::vec::Vec<u8> {
+            type Allocator = ();
+
             fn as_ptr(&self) -> *const u8 {
                 <[u8]>::as_ptr(self)
             }
